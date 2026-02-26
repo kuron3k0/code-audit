@@ -33,76 +33,9 @@
 @RequestHeader, @CookieValue, @ModelAttribute
 ```
 
-#### Python/Flask/Django
-```python
-# Flask 路由
-@app.route('/path')
-@blueprint.route('/path')
-
-# Django URL
-path('url/', view_func)
-re_path(r'^url/$', view_func)
-
-# FastAPI
-@app.get('/path')
-@app.post('/path')
-```
-
-#### Go/Gin
-```go
-// Gin 路由
-r.GET("/path", handler)
-r.POST("/path", handler)
-r.Group("/api").GET("/path", handler)
-
-// Echo
-e.GET("/path", handler)
-```
-
-### 通用污点源
-
-| 类型 | 描述 | 风险等级 |
-|------|------|----------|
-| HTTP参数 | GET/POST/Query参数 | High |
-| HTTP Header | Host/Referer/User-Agent/X-* | High |
-| Cookie | 会话数据、用户偏好 | High |
-| 文件上传 | 文件名、文件内容 | Critical |
-| WebSocket | 实时消息数据 | High |
-| 数据库查询结果 | 二阶注入风险 | Medium |
-| 文件读取 | 配置文件、日志 | Medium |
-| 环境变量 | 用户可控环境 | Low |
-| 命令行参数 | CLI输入 | Medium |
-
----
-
-## 语言特定污点源
-
-### Java
+### 框架入口点（以免遗漏）
+#### java
 ```java
-// Servlet
-request.getParameter("name")
-request.getParameterValues("names")
-request.getHeader("X-Custom")
-request.getCookies()
-request.getInputStream()
-request.getReader()
-request.getPart("file")
-request.getRequestURI()
-request.getQueryString()
-
-// Spring MVC
-@RequestParam String param
-@PathVariable String id
-@RequestBody Object body
-@RequestHeader String header
-@CookieValue String cookie
-@ModelAttribute Object model
-
-// 文件/网络
-new Scanner(System.in)
-new BufferedReader(new FileReader(path))
-socket.getInputStream()
-
 // ===== Java Web 组件入口点 (自动识别为 Source) =====
 // 带有以下特征的类/方法自动标记为外部入口点
 
@@ -150,7 +83,7 @@ mybatis selectOneResultSetHandler(param)
 JPA entityManager.createQuery()
 JPA findById(id)                      // 可能返回包含恶意数据的实体
 JPA findAll()                         // 可能返回包含恶意数据的实体列表
-JPA getBy*(...)                        // 所有 getter 方法
+JPA get*(...)                        // 所有 getter 方法
 
 // 缓存取出 (Redis/Memcached)
 redisTemplate.opsForValue().get(key)
@@ -159,9 +92,78 @@ stringRedisTemplate.opsForValue().get(key)
 cache.get(key)                        // 通用缓存
 Ehcache.get(key)
 
-// 文件读取 (从用户可控位置)
-FileInputStream.read()                 // 路径可能来自用户输入
-Files.readAllLines(path)              // 路径可能来自用户输入
+```
+
+#### Python/Flask/Django
+```python
+# Flask 路由
+@app.route('/path')
+@blueprint.route('/path')
+
+# Django URL
+path('url/', view_func)
+re_path(r'^url/$', view_func)
+
+# FastAPI
+@app.get('/path')
+@app.post('/path')
+```
+
+#### Go/Gin
+```go
+// Gin 路由
+r.GET("/path", handler)
+r.POST("/path", handler)
+r.Group("/api").GET("/path", handler)
+
+// Echo
+e.GET("/path", handler)
+```
+
+### 通用污点源
+
+| 类型 | 描述 | 风险等级 |
+|------|------|----------|
+| HTTP参数 | GET/POST/Query参数 | High |
+| HTTP Header | Host/Referer/User-Agent/X-* | High |
+| Cookie | 会话数据、用户偏好 | High |
+| 文件上传 | 文件名、文件内容 | Critical |
+| WebSocket | 实时消息数据 | High |
+| 数据库查询结果 | 二阶注入风险 | Medium |
+| 文件读取 | 配置文件、日志 | Medium |
+| 环境变量 | 用户可控环境 | Low |
+| 命令行参数 | CLI输入 | Medium |
+
+---
+
+## 语言特定污点源
+
+### Java
+```java
+// Servlet
+HttpServletRequest.getParameter("name")
+HttpServletRequest.getParameterValues("names")
+HttpServletRequest.getHeader("X-Custom")
+HttpServletRequest.getCookies()
+HttpServletRequest.getInputStream()
+HttpServletRequest.getReader()
+HttpServletRequest.getPart("file")
+HttpServletRequest.getRequestURI()
+HttpServletRequest.getQueryString()
+
+// Spring MVC
+@RequestParam String param
+@PathVariable String id
+@RequestBody Object body
+@RequestHeader String header
+@CookieValue String cookie
+@ModelAttribute Object model
+
+// 文件/网络
+new Scanner(System.in)
+new BufferedReader(new FileReader(path))
+socket.getInputStream()
+
 
 ### Python
 ```python
