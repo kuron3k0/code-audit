@@ -102,7 +102,66 @@ request.getQueryString()
 new Scanner(System.in)
 new BufferedReader(new FileReader(path))
 socket.getInputStream()
-```
+
+// ===== Java Web 组件入口点 (自动识别为 Source) =====
+// 带有以下特征的类/方法自动标记为外部入口点
+
+// Servlet 入口点 - doGet/doPost/doPut/doDelete/service 是请求入口
+extends HttpServlet                    // Servlet 类
+implements Servlet                      // service() 方法
+doGet(HttpServletRequest, HttpServletResponse)
+doPost(HttpServletRequest, HttpServletResponse)
+doPut(HttpServletRequest, HttpServletResponse)
+doDelete(HttpServletRequest, HttpServletResponse)
+
+// Filter 入口点 - doFilter() 中 chain.doFilter() 之前的逻辑是入口
+implements Filter                      // Filter 类
+init(FilterConfig)                     // 初始化阶段
+doFilter(ServletRequest, ServletResponse, FilterChain)  // 过滤逻辑
+
+// Interceptor 入口点 - preHandle() 是前置入口
+implements HandlerInterceptor          // Spring MVC
+preHandle(HttpServletRequest, HttpServletResponse, Object)  // 请求前入口
+implements WebRequestInterceptor
+preHandle(WebRequest)                 // WebRequestInterceptor
+
+// Listener 入口点 - 上下文初始化时可能加载配置
+implements ServletContextListener     // ServletContext 生命周期
+contextInitialized(ServletContextEvent)
+implements HttpSessionListener         // Session 生命周期
+sessionCreated(HttpSessionEvent)
+implements ServletRequestListener     // Request 生命周期
+requestInitialized(ServletRequestEvent)
+implements ContextLoaderListener       // Spring 上下文
+
+// ===== 二次注入 Source (存储型漏洞的取出点) =====
+// 数据从存储中取出后未净化直接使用，可能导致二阶注入
+
+// 数据库查询结果（可能包含一次注入的恶意数据）
+ResultSet.getString(column)
+ResultSet.getObject(column)
+ResultSet.getInt(column)
+jdbcTemplate.queryForObject(sql, rowMapper)
+jdbcTemplate.query(sql, resultSetExtractor)
+jdbcTemplate.queryForList(sql)
+mybatis selectOne(namespace, param)
+mybatis selectList(namespace, param)
+mybatis selectOneResultSetHandler(param)
+JPA entityManager.createQuery()
+JPA findById(id)                      // 可能返回包含恶意数据的实体
+JPA findAll()                         // 可能返回包含恶意数据的实体列表
+JPA getBy*(...)                        // 所有 getter 方法
+
+// 缓存取出 (Redis/Memcached)
+redisTemplate.opsForValue().get(key)
+redisTemplate.opsForHash().get(key, hashKey)
+stringRedisTemplate.opsForValue().get(key)
+cache.get(key)                        // 通用缓存
+Ehcache.get(key)
+
+// 文件读取 (从用户可控位置)
+FileInputStream.read()                 // 路径可能来自用户输入
+Files.readAllLines(path)              // 路径可能来自用户输入
 
 ### Python
 ```python
@@ -1603,6 +1662,97 @@ grep -rn "@type" --include="*.json" | \
 
 ---
 
-**最后更新**: 2024-12-26
+## 快速检测命令
+
+### Java Web 入口点检测
+
+```bash
+# ===== Servlet 检测 =====
+# 查找所有 Servlet 类
+grep -rn "extends HttpServlet" --include="*.java"
+
+# 查找 Servlet 方法
+grep -rn "doGet\|doPost\|doPut\|doDelete" --include="*.java" -A 2
+
+# 查找实现 Servlet 接口的类
+grep -rn "implements Servlet" --include="*.java"
+
+# ===== Filter 检测 =====
+# 查找 Filter 实现
+grep -rn "implements Filter" --include="*.java"
+
+# 查找 FilterChain 调用（确认 Filter 被使用）
+grep -rn "FilterChain\|doFilter" --include="*.java" | grep -v "^.*://"
+
+# 查找 Filter 配置
+grep -rn "@WebFilter\|FilterRegistrationBean" --include="*.java"
+
+# ===== Interceptor 检测 =====
+# 查找 Interceptor 实现
+grep -rn "implements HandlerInterceptor\|implements WebRequestInterceptor" --include="*.java"
+
+# 查找 Interceptor 配置
+grep -rn "addInterceptors\|registry.addInterceptor" --include="*.java"
+
+# ===== Listener 检测 =====
+# 查找所有 Listener 实现
+grep -rn "implements.*Listener" --include="*.java"
+
+# 常见 Listener 类型
+grep -rn "ServletContextListener\|HttpSessionListener\|ServletRequestListener" --include="*.java"
+```
+
+### 二次注入检测
+
+```bash
+# ===== 存储型漏洞检测流程 =====
+
+# Step 1: 识别存储点（用户输入存入数据库/缓存/文件）
+# 查找 INSERT/UPDATE 操作
+grep -rn "INSERT INTO\|UPDATE.*SET\|insert\|update" --include="*.java" | grep -E "execute|prepareStatement|@Query|@Modifying"
+
+# 查找缓存存储操作
+grep -rn "redisTemplate\|stringRedisTemplate\|cache\.put\|setRedis" --include="*.java"
+
+# 查找文件写入
+grep -rn "FileWriter\|FileOutputStream\|writeStringToFile" --include="*.java"
+
+# Step 2: 识别取出点（从数据库/缓存/文件取出数据）
+# 查找数据库查询
+grep -rn "SELECT.*FROM\|selectOne\|selectList\|findBy\|getBy\|queryForObject\|query(" --include="*.java"
+
+# 查找缓存获取
+grep -rn "redisTemplate.*get\|stringRedisTemplate.*get\|cache\.get\|getRedis" --include="*.java"
+
+# 查找文件读取
+grep -rn "FileReader\|FileInputStream\|readFileToString\|readAllLines" --include="*.java"
+
+# Step 3: 追踪取出后的使用（是否未经净化进入危险操作）
+# 查找取出后直接拼接 SQL
+grep -rn "getString.*+\|+.*getString" --include="*.java" -B 2
+
+# 查找取出后直接输出到响应
+grep -rn "getWriter.*getString\|getWriter.*result\|out\.print.*select" --include="*.java" -B 2
+
+# 查找取出后直接执行命令
+grep -rn "exec.*getString\|Runtime.*getString\|ProcessBuilder.*getString" --include="*.java" -B 2
+```
+
+### 综合检测
+
+```bash
+# 快速扫描高风险入口点
+grep -rn "extends HttpServlet\|implements Filter\|implements HandlerInterceptor" --include="*.java"
+
+# 检查入口点中的危险操作
+for f in $(grep -rl "extends HttpServlet\|implements Filter" --include="*.java"); do
+  echo "=== $f ==="
+  grep -n "getParameter\|getQueryString\|executeQuery\|exec\|ProcessBuilder" "$f"
+done
+```
+
+---
+
+**最后更新**: 2026-02-26
 **参考**: JYso, ysoserial, marshalsec
 
