@@ -135,7 +135,7 @@ grep -rn "Runtime\.getRuntime\|ProcessBuilder\|\.exec\s*(" --include="*.java"
 
 ### 3.1 数据修改操作验证清单
 
-```markdown
+````markdown
 ## 控制验证: [端点名称]
 
 ### 基本信息
@@ -161,11 +161,11 @@ grep -B 5 "public.*delete\|public.*update" [Controller文件] | grep "@PreAuthor
 # 检查资源所有权验证
 grep -A 20 "public.*delete" [Service文件] | grep "getOwnerId\|getCurrentUser"
 ```
-```
+````
 
 ### 3.2 数据访问操作验证清单
 
-```markdown
+````markdown
 ## 控制验证: GET /api/resource/{id}
 
 | 控制项 | 应有 | 代码实现 | 结果 |
@@ -182,11 +182,11 @@ grep -A 10 "findById\|getById" [Repository文件] | grep "ownerId\|owner_id"
 # 检查返回数据是否脱敏
 grep -rn "@JsonIgnore\|mask\|desensitize" [Entity/DTO文件]
 ```
-```
+````
 
 ### 3.3 资金操作验证清单
 
-```markdown
+````markdown
 ## 控制验证: POST /api/transfer
 
 | 控制项 | 应有 | 代码实现 | 结果 |
@@ -209,7 +209,7 @@ grep -rn "idempotent\|transactionId\|requestId" --include="*.java"
 # 检查余额检查逻辑
 grep -A 10 "transfer\|debit" [Service文件] | grep "balance.*>=\|insufficient"
 ```
-```
+````
 
 ### 3.4 常见缺失模式 → 漏洞映射
 
