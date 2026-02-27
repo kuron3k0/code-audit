@@ -1403,7 +1403,7 @@ response.getWriter().write(bio);  // ❌ XSS
 
 
 ### 报告模板
-```markdown
+````markdown
 ## [Critical] 二次SQL注入 - UserService.java:45
 
 ### 基本信息
@@ -1435,10 +1435,9 @@ response.getWriter().write(bio);  // ❌ XSS
   代码: String sql = "SELECT * FROM posts WHERE author='" + bio + "'";
         stmt.executeQuery(sql);
   说明: 拼接后执行，导致注入
-```
+
 
 ### 修复建议
-
 ```java
 // 方案1: 取出时净化
 String bio = user.getBio();
@@ -1453,3 +1452,6 @@ ps.setString(1, user.getBio());
 // 方案3: 存储时净化（但不推荐）
 // 存储时净化会让数据库存储已转义数据，可能导致显示异常
 ```
+
+````
+
