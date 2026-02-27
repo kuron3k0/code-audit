@@ -1258,13 +1258,26 @@ grep -rn "contains.*\\.\\.\|normalize\|startsWith" --include="*.java"
 
 #### 场景1: ORM对象属性注入
 ```java
-// 攻击者输入: user.setBio("'; DROP TABLE users;--")
+// 攻击者输入:
+user.setBio("'; DROP TABLE users;--")
 
 // 存储阶段（一次）- 用户输入被存入数据库
 @PostMapping("/profile")
 public void updateProfile(@RequestBody User user) {
-    userService.save(user);  // 数据存入数据库，未净化
+    userService.insertUser(user);  // 数据存入数据库，未净化
 }
+<!-- 假设对应的 Mapper 接口为 UserMapper -->
+<insert id="insertUser" parameterType="com.example.entity.User" useGeneratedKeys="true" keyProperty="id">
+  INSERT INTO user (
+    username,
+    <if test="address != null">, address</if>
+  )
+  VALUES (
+    #{username},
+    <if test="address != null">, #{address}</if>
+  )
+</insert>
+
 
 // 取出阶段（二次）- 从数据库取出后直接使用
 @GetMapping("/search")
@@ -1307,7 +1320,7 @@ response.getWriter().write(bio);  // ❌ XSS
 #### Step 1: 识别Sink点（危险操作）
 ```
 目标: 找到所有危险函数调用
-- SQL执行: executeQuery, executeUpdate, createQuery
+- SQL执行: executeQuery, executeUpdate, createQuery、mapper xml函数
 - 命令执行: exec, Runtime.exec, ProcessBuilder
 - 文件操作: FileInputStream, FileReader
 - 响应输出: getWriter().write, out.print
@@ -1320,7 +1333,7 @@ response.getWriter().write(bio);  // ❌ XSS
 
 1. 直接来源: request.getParameter() → 一次注入
 2. 间接来源: 
-   - user.getXxx() → 查找user对象如何获取
+   - user.getXxx() → 查找user对象如何获取，有没有其他接口可以让用户添加这个数据
    - entity.getProfile().getXxx() → 追踪整个对象链
    - cache.get(key) → 查找缓存如何设置
 ```
@@ -1345,7 +1358,7 @@ response.getWriter().write(bio);  // ❌ XSS
 #### Step 4: 确认污点传播链
 ```
 完整路径示例:
-[HTTP请求] → [user.setBio(input)] → [数据库INSERT] → [数据库SELECT] → [user.getBio()] → [SQL拼接] → [executeQuery]
+[HTTP请求] → [user.setBio(input)]（如有） → [数据库INSERT] → [数据库SELECT] → [user.getBio()] → [SQL拼接、命令拼接等] → [executeQuery、Runtime.exec等]
 
 检测要点:
 - 存储时是否净化? → 数据库中存储了恶意数据
@@ -1364,7 +1377,7 @@ response.getWriter().write(bio);  // ❌ XSS
    
 2. 如果来自findById:
    - LSP findReferences(findById) → 找到所有查询点
-   - 分析查询返回的实体如何被设置
+   - 分析查询返回的实体如何被设置，是否有类似setById的接口、mapper xml等
    
 3. 如果来自 new User():
    - 追踪对象的 setter 调用
@@ -1373,27 +1386,6 @@ response.getWriter().write(bio);  // ❌ XSS
 4. 分析 setter 的参数来源
    - 来自 request.getParameter()?
    - 来自其他查询结果?
-```
-
-#### 方法2: Grep模式匹配
-```bash
-# 1. 找到Sink点
-grep -rn "getBio\|getName\|getContent" --include="*.java" | grep -E "executeQuery|exec|getWriter|write"
-
-# 2. 向上追溯变量定义
-# 假设发现: String content = user.getBio();
-grep -rn "user" --include="*.java" -B 5 | grep "getBio"
-
-# 3. 找到user对象的来源
-grep -rn "User.*=.*findById\|User.*=.*selectOne\|User.*=.*new User" --include="*.java"
-
-# 4. 如果来自数据库，追踪实体如何被写入
-grep -rn "setBio\|setName" --include="*.java" | grep -E "request|param|body"
-
-# 5. 确认存储时是否净化
-grep -rn "INSERT INTO.*bio\|UPDATE.*bio" --include="*.java" -A 5
-grep -rn "setBio.*#" --include="*.java"   # 参数化 - 安全
-grep -rn "setBio.*\$" --include="*.java"   # 拼接 - 危险
 ```
 
 ### 判定规则
@@ -1409,39 +1401,8 @@ grep -rn "setBio.*\$" --include="*.java"   # 拼接 - 危险
 - 即使存储时使用了参数化，取出后直接拼接仍然可能导致二次注入
 - 取出后的数据应该被视为不可信，需要再次净化
 
-### 检测命令集
-
-```bash
-# ===== 快速扫描二次注入 =====
-
-# 1. 查找所有getter调用（潜在Sink来源）
-grep -rn "\.get[A-Z].*(" --include="*.java" | grep -v "getClass\|getCause\|getMessage"
-
-# 2. 查找getter结果进入危险操作
-grep -rn "\.get.*executeQuery\|\.get.*exec\|\.get.*getWriter\|\.get.*write" --include="*.java"
-
-# 3. 追踪对象来源
-# 假设发现危险: stmt.executeQuery("... " + user.getBio())
-grep -rn "User.*=.*findById\|User.*=.*selectOne" --include="*.java"
-
-# 4. 找到实体字段的setter
-# 假设发现user来自数据库，需要找setBio
-grep -rn "setBio\|setName\|setContent" --include="*.java" | grep -E "request|param|body|@Request"
-
-# 5. 确认存储操作的净化情况
-grep -rn "INSERT INTO\|UPDATE.*SET" --include="*.xml" | grep -E "\\\${|#{"
-# ${} = 危险, #{} = 安全
-
-# 6. 综合检测脚本
-for file in $(grep -rl "executeQuery\|exec\|getWriter" --include="*.java"); do
-  echo "=== Checking: $file ==="
-  # 查找getter调用
-  grep -n "get[A-Z]" "$file" | head -5
-done
-```
 
 ### 报告模板
-
 ```markdown
 ## [Critical] 二次SQL注入 - UserService.java:45
 
@@ -1453,8 +1414,6 @@ done
 | CWE编号 | CWE-89 |
 
 ### 攻击链分析
-
-```
 [Step 1] 用户输入
   位置: ProfileController.java:30
   代码: user.setBio("admin'--")
