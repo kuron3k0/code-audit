@@ -573,7 +573,7 @@ if (path.contains("../")) {
    - [ ] 每个 Sink 的净化措施已验证
 
 3. 数据流覆盖
-   - [ ] 主要数据流已追踪
+   - [ ] 可利用的漏洞数据流已追踪
    - [ ] Post-Sanitization Concat 已检查
 
 4. 文档覆盖

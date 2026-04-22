@@ -529,7 +529,7 @@ grep -rn "ClassLoader\|URLClassLoader\|loadClass" --include="*.java"
 
 ## 9. 报告模板
 
-```markdown
+````markdown
 ## 动态代码风险点: [编号]
 
 ### 基本信息
@@ -555,7 +555,8 @@ grep -rn "ClassLoader\|URLClassLoader\|loadClass" --include="*.java"
 ### 修复建议
 1. [具体修复建议]
 2. [替代方案]
-```
+````
+
 
 ---
 

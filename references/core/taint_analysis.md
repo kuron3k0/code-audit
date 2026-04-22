@@ -35,7 +35,7 @@
 
 ### 标准报告格式
 
-```markdown
+````markdown
 ## [严重程度] 漏洞类型 - 文件名:行号
 
 ### 基本信息
@@ -56,9 +56,9 @@
 **类型**: [HTTP参数 / Cookie / Header / 文件读取 / 数据库 / 环境变量]
 
 **代码**:
-\`\`\`language
+```language
 // 污点引入点代码
-\`\`\`
+```
 
 **说明**: 描述为什么此处是污点源，数据如何进入系统
 
@@ -66,7 +66,7 @@
 
 ### Taint Propagation (污点传播路径)
 
-\`\`\`
+```
 [步骤1] file.ext:行号
         代码: variable = source_input
         操作: 污点引入
@@ -82,7 +82,7 @@
 [步骤4] file.ext:行号
         代码: execute(result)
         操作: 污点到达Sink
-\`\`\`
+```
 
 **传播链摘要**:
 - 总跨度: X 行代码 / X 个函数 / X 个文件
@@ -98,9 +98,9 @@
 **类型**: [SQL执行 / 命令执行 / 文件操作 / 网络请求 / 模板渲染 / 反序列化]
 
 **代码**:
-\`\`\`language
+```language
 // 危险操作代码
-\`\`\`
+```
 
 **危害**:
 - 攻击者可实现: [具体危害描述]
@@ -124,9 +124,9 @@
 - [ ] 类型转换: 无 / 强制类型 / 长度限制
 
 **攻击向量**:
-\`\`\`
+```
 示例payload或攻击路径
-\`\`\`
+```
 
 ---
 
@@ -140,9 +140,9 @@
 3. 步骤三
 
 **Payload**:
-\`\`\`
+```
 具体的攻击payload
-\`\`\`
+```
 
 **预期结果**: 描述攻击成功后的现象
 
@@ -151,9 +151,9 @@
 ### 修复建议
 
 **推荐方案**:
-\`\`\`language
+```language
 // 安全代码示例
-\`\`\`
+```
 
 **替代方案**: 其他可行的修复方式
 
@@ -166,7 +166,7 @@
 ### 参考资料
 - CWE: https://cwe.mitre.org/data/definitions/XXX.html
 - OWASP: 相关链接
-```
+````
 
 ---
 
@@ -854,7 +854,7 @@ Controller.handleRequest()
 
 ### 上下文分析模板
 
-```markdown
+````markdown
 ## 函数上下文分析报告
 
 ### 目标函数
@@ -894,7 +894,7 @@ Controller.handleRequest()
 - 调用链存在从 Source 到 Sink 的污点传播
 - 中间无有效净化措施
 - 建议: 使用参数化查询
-```
+````
 
 ---
 
@@ -928,7 +928,7 @@ Controller.handleRequest()
 
 ### SQL注入示例
 
-```markdown
+````markdown
 ## [Critical] SQL注入 - UserController.java:70
 
 ### 基本信息
@@ -1067,7 +1067,7 @@ ResultSet rs = pstmt.executeQuery();
 ### 参考资料
 - CWE-89: https://cwe.mitre.org/data/definitions/89.html
 - OWASP SQL Injection: https://owasp.org/www-community/attacks/SQL_Injection
-```
+````
 
 ---
 

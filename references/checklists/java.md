@@ -9,7 +9,7 @@
 **关键问题**:
 1. MyBatis 映射文件中是否使用 `${}`？（安全: `#{}` / 危险: `${}`）
 2. JPA/Hibernate 是否有 native query 或 `createQuery` 拼接用户输入？
-3. JDBC 是否用 `Statement` 而非 `PreparedStatement`？
+3. JDBC 是否用 `Statement` 而非 `PreparedStatement`？JDBC的url是否可控？
 4. ORDER BY / LIMIT / 表名 / 列名——这些无法参数化，是否有白名单验证？
 5. SpEL: 是否有 `parseExpression()` 接收用户输入？`@Value("#{...}")` 是否注入外部值？
 6. LDAP: `DirContext`/`LdapContext` 的查询条件是否拼接用户输入？

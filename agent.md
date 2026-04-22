@@ -70,6 +70,63 @@
 
 **核心原则: 宁可漏报，不可误报。质量优于数量。**
 
+### 防幻觉补充规则 - 函数/调用链验证 (强制)
+
+> 针对"凭经验编造函数名"这一核心幻觉来源
+
+```
+⚠️ 函数/调用链幻觉是最严重的误报来源
+
+1. 函数名验证 (必须)
+   ✗ 禁止报告 "Service.findUserByXxx()" - 除非用 Grep 验证过
+   ✓ 必须执行: grep -rn "findUserByXxx" /path/to/Service.java
+   
+2. 调用链验证 (必须)
+   ✗ 禁止假设 "Controller → Service → Repository" 这样的调用链存在
+   ✓ 必须验证: grep 确认上层确实调用了下层
+   ✓ 例如: 报告 Controller → Service.findXxx() → Repository.findXxx()
+           必须验证 Service 中确实有对 Repository 的调用
+
+3. FQCN 完全限定验证 (必须)
+   ✗ 禁止简写: "findUser()" 
+   ✓ 必须验证完整签名: "UserService.findUser(String username)"
+   ✓ 如果报告某个类的某个方法，必须验证该类确实有这个方法
+
+4. 代码引用要求 (强制)
+   ✗ 禁止: "Service.java:40 有 SQL 注入"
+   ✓ 必须: 报告中必须包含实际的代码片段作为证据
+   ✓ 格式: 从 Read 工具输出中直接引用，带行号
+
+5. 验证状态标注 (强制)
+   每个漏洞发现必须标注验证状态:
+   - [✅ VERIFIED] = 已用 Grep/Read 验证函数/调用链存在
+   - [⚠️ UNVERIFIED] = 未验证，仅基于推测
+   - [❌ INVALID] = 验证失败，函数不存在
+   
+   只有 [✅ VERIFIED] 才能进入最终报告
+```
+
+### 验证流程强制化
+
+```
+每个漏洞的数据流验证必须执行以下步骤，或者通过LSP验证:
+
+Step 1: 验证函数存在
+  $ grep -rn "函数名" /path/to/file.java
+  必须有匹配结果
+
+Step 2: 验证调用链
+  $ grep -rn "下层Service|下层Repository" /path/to/上层Service.java
+  确认上层确实调用了下层
+
+Step 3: 验证行号
+  报告的行号附近必须有对应代码
+  (通过 Read 工具读取验证)
+
+Step 4: 标注状态
+  在漏洞标题后添加 [✅ VERIFIED] 或 [⚠️ UNVERIFIED]
+```
+
 ---
 
 ### 激进扫描原则 (GO SUPER HARD)
@@ -220,7 +277,7 @@ Agent 同步纪律:
 
 ## Language & Framework Modules
 
-> 根据项目技术栈加载对应模块，获取语言特定的漏洞模式和检测方法
+> 根据项目技术栈加载对应模块，获取语言特定的漏洞模式和检测方法，在Phase 3和Phase 5的时候按需加载
 
 ### 语言模块
 
@@ -1066,6 +1123,7 @@ Agent 5: 配置+加密+供应链 (D7+D8+D10) [config-driven]
 ```
 ## Agent: {方向名称} | Round {N} | 发现: {数量}
 
+=== AGENT_OUTPUT_START ===
 === HEADER START ===
 COVERAGE: D1=✅(3,fan=5/12), D2=⚠️(1,fan=1/8), D3=❌, ...
   sink-driven 维度: fan=已追踪文件数/Grep命中文件数
@@ -1289,7 +1347,7 @@ HOTSPOTS: {file:line:断点描述} | ... (R2 优先深入，含断点上下文)
 6. 正面发现 ── 项目做得好的安全实践
 ```
 
-**每个漏洞条目必须包含**: 编号与标题(如C-01) | 属性表(严重程度/CVSS/CWE) | 漏洞位置(文件:行号) | 漏洞代码 | 详细分析 | 利用方式 | 修复建议
+**每个漏洞条目必须包含**: 编号与标题(如C-01) | 属性表(严重程度/CVSS/CWE) | 漏洞位置(文件:行号) | 漏洞代码 | 利用链详细数据流 | 详细分析 | 利用方式 | 修复建议
 
 **报告质量标准**：
 
@@ -1298,41 +1356,48 @@ HOTSPOTS: {file:line:断点描述} | ... (R2 优先深入，含断点上下文)
 | **可定位** | 每个漏洞有精确的文件路径和行号 |
 | **可复现** | 提供足够信息让开发者复现问题 |
 | **可修复** | 给出具体的代码修复方案，不是泛泛而谈 |
-| **无误报** | 每个漏洞都经过数据流验证 |
+| **无误报** | 每个漏洞都经过数据流验证（禁止伪造和臆想！） |
 | **完整分析** | 不仅说"有问题"，还说明完整利用路径和影响 |
 
-### 漏洞报告模板 (简洁版)
+### ⚠️ 数据流输出格式规范 (强制)
 
-```markdown
-## [严重程度] 漏洞标题
+> **每个漏洞发现必须使用 taint_analysis.md 中的数据流格式输出**
 
-### 概述
-简要描述漏洞性质和影响。
+**必须参考**: `references/core/taint_analysis.md`
 
-### 受影响组件
-- **文件**: `path/to/file.py:42`
-- **函数**: `vulnerable_function()`
+关键输出要素:
+1. **Source**: 入口点 (HTTP参数/文件上传等) - 文件:行号 + 代码
+2. **Propagation**: 完整调用链 (Entry → Controller → Service → Repository → Sink)
+3. **Sink**: 危险操作点 - 文件:行号 + 代码
+4. **验证状态**: [✅ VERIFIED] / [⚠️ UNVERIFIED] / [❌ INVALID]
 
-### 漏洞代码
-[代码片段]
+详细格式见 taint_analysis.md 第 34-169 行
 
-### 攻击向量
-描述攻击者如何利用此漏洞。
 
-### PoC
-具体的利用步骤或payload
+**验证状态标注** (强制):
+- [✅ VERIFIED] = 已用 Grep/Read/LSP 验证函数/调用链存在
+- [⚠️ UNVERIFIED] = 未验证，仅基于推测
+- [❌ INVALID] = 验证失败，函数不存在
 
-### 修复建议
-[修复代码示例]
+只有 [✅ VERIFIED] 的漏洞才能进入最终报告。
 
-### 参考
-- CWE-XXX
-```
+### ⚠️ 数据流验证环节 (强制)
 
-### 污点分析报告模板
+> **禁止报告未经验证的漏洞。每个数据流步骤必须通过以下验证(最好通过Read读取文件、LSP进行检查，有确切证据就行):**
 
-> 完整模板: `references/core/taint_analysis.md`
-> 格式: 基本信息(类型/CWE) → Source(位置/类型/代码) → Propagation(逐步路径) → Sink(位置/危害) → 分析结论(净化/复杂度) → PoC+修复
+1. **函数存在验证**: 使用 Grep/Read/LSP 确认函数名在对应文件中存在
+
+2. **调用链验证**: 使用 Grep/Read/LSP 确认上层调用下层
+
+3. **FQCN 验证**: 确认完全限定类名匹配
+   - 如果报告 `mysqlInjectionService.findUserLevel3()`
+   - 必须验证: `mysqlInjectionService`对应的类文件（如`SqlInjectionService.java`，或者父类、动态代理等）中确实有 `findUserLevel3` 方法
+
+4. **行号验证**: 报告的行号附近必须有对应代码
+
+**验证失败处理**:
+- 如果函数不存在 → 标记为 [❌ INVALID] 并说明原因
+- 如果调用链不连 → 重新追踪或标记为 [⚠️ UNVERIFIED]
 
 ---
 

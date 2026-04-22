@@ -24,17 +24,17 @@ public void genCode(HttpServletResponse response, @PathVariable("tableName") Str
 
 #### 风险模式2: 自动参数绑定风险
 ```java
-// ❌ 中危: 自动参数绑定用于文件操作
+// ❌ 高危: 自动参数绑定用于文件操作
 @RequestMapping("common/download")
-public void fileDownload(String fileName, Boolean delete, HttpServletResponse response) {
-    String filePath = Global.getDownloadPath() + fileName;  // ❌ 路径拼接
+public void fileDownload(String fileName, Boolean delete, User user, HttpServletResponse response) {
+    String filePath = Global.getDownloadPath() + user.getUsername() + fileName;  // ❌ 路径拼接
     FileUtils.writeBytes(filePath, response.getOutputStream());
 }
 
 // 检测正则
-- "public.*\(String.*fileName"
-- "public.*\(String.*path"
-- "public.*\(String.*resource"
+- "public.*\(.*?String.*fileName"
+- "public.*\(.*?String.*path"
+- "public.*\(.*?String.*resource"
 ```
 
 ### 响应处理风险检测
