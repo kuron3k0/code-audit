@@ -145,7 +145,7 @@ docker exec -it sandbox python /workspace/poc/verify_all.py
 |------|-----------------|
 | quick | 当前 SKILL.md 已加载，无需额外文档 |
 | standard | + `references/checklists/coverage_matrix.md` + 对应语言 checklist |
-| deep | + **`agent.md`（完整读取，不可跳过，不可只读部分）** + `coverage_matrix.md` + 对应语言 checklist |
+| deep | + **`agent.md`（完整读取，不可跳过，不可只读部分）** + `coverage_matrix.md` + `references/core/taint_analysis.md`（数据流详细分析）+ `references/core/comprehensive_audit_methodology.md`（代码审计方法论）+ 对应语言 checklist |
 
 deep 模式下 agent.md 是必读文档 — Step 4 的执行计划模板包含只有 agent.md 中才有的字段（维度权重、Agent 切分模板、门控条件、执行状态机）。
 
